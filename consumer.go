@@ -8,7 +8,9 @@ import (
 )
 
 func worker(id int, ch chan Recipient, wg *sync.WaitGroup) {
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 
 	for recipient := range ch {
 		smtpHost := "localhost"

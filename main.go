@@ -2,7 +2,8 @@ package main
 
 import (
 	"bytes"
-	"sync"
+	"fmt"
+	"net/http"
 	"text/template"
 )
 
@@ -13,21 +14,27 @@ type Recipient struct {
 
 func main() {
 	recipientsChan := make(chan Recipient)
-	var wg sync.WaitGroup
 
-	totalWorkers := 5 // You can adjust this based on your requirements
+	totalWorkers := 5
 
+	// 1. Boot up the consumer workers
+	// (We no longer track wg.Add/Wait inside main, as workers run infinitely)
 	for i := 1; i <= totalWorkers; i++ {
-		wg.Add(1)
-		go worker(i, recipientsChan, &wg)
+		// you'll need to modify worker() signature to not take wg, or just pass a dummy one
+		go worker(i, recipientsChan, nil)
 	}
-	go loadRecipients("./name_email.csv", recipientsChan)
 
-	// Wait for the worker to finish processing (you can use sync.WaitGroup or other synchronization methods)
-	// For simplicity, we will just block the main goroutine here
+	// Optional: keep the CSV loader if you still want CLI processing too
+	// go loadRecipients("./name_email.csv", recipientsChan)
 
-	wg.Wait()
+	// 2. Setup the HTTP handlers
+	mux := SetupRoutes(recipientsChan)
 
+	// 3. Start the Web Server
+	fmt.Println("Server is running on http://localhost:8081")
+	if err := http.ListenAndServe(":8081", mux); err != nil {
+		fmt.Printf("Server failed: %v\n", err)
+	}
 }
 
 func executeTemplate(recipient Recipient) (string, error) {
